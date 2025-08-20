@@ -4,6 +4,7 @@ import math
 
 file = "BTCUSDT_2024_YEAR.csv"
 
+
 dt_str = "2024-01-01 01:00:00"
 
 
@@ -18,80 +19,39 @@ a = pd.to_datetime(dt_str)
 print(a)
 df['open_time'] = pd.to_datetime(df['open_time'], unit='ms')
 
+#df['open_time'] = pd.to_datetime(df['open_time'], dayfirst=True)
+#df['open_time'] = pd.to_datetime(df['open_time'], format='%d-%m-%Y %H:%M')
+
 print(df.head(5))
-data = df[df['open_time'] > pd.to_datetime(dt_str)].head(8000)
+#data = df[df['open_time'] > pd.to_datetime(dt_str)].head(8000)
 data = df[df['open_time'] > pd.to_datetime(dt_str)]#.head(4000)
 prices = data['close'].values
 opens = data['open'].values
 highs = data['high'].values
+closes = data['close'].values
 lows = data['low'].values
 times = data['open_time'].values
 print(data.head(5))
 print(times)
-"""
-InpRadius = 0.5
+
+InpRadius = 0.8
 
 InpMinHandleCandles = 5
-InpMaxHandleCandles = 30
+InpMaxHandleCandles = 15
 
-InpMinCupCandles = 10
-InpMaxCupCandles = 80
+InpMinCupCandles = 8
+InpMaxCupCandles = 35
 
 """
-InpRadius = 0.6
+InpRadius = 0.8
 
 InpMinHandleCandles = 5
 InpMaxHandleCandles = 50
 
 InpMinCupCandles = 30
 InpMaxCupCandles = 300
+"""
 
-
-####################################
-fractal_highs = []
-for i in range(1, len(data)-1):
-   if highs[i-1] < highs[i] and highs[i] > highs[i+1]:
-      fractal_highs.append(i)
-   if highs[i-2] < highs[i-1] and highs[i-1] == highs[i] and highs[i] > highs[i+1]:
-      fractal_highs.append(i)
-
-print(len(fractal_highs))
-####################################
-handle_dicts = {}
-for fh in fractal_highs:
-   for i in range(fh+1, min(len(data)-1, fh+1+InpMaxHandleCandles)):
-      if highs[i] > highs[fh]:
-         if i > (fh+InpMinHandleCandles):
-            handle_dicts[fh] = i
-         break
-
-print(len(handle_dicts))
-print(handle_dicts)
-####################################
-cup_dicts = {}
-for fh_l_pos in range(len(fractal_highs)-1):
-   fh_l_idx = fractal_highs[fh_l_pos]
-   for fh_r_pos in range(fh_l_pos+1, len(fractal_highs)):
-      fh_r_idx = fractal_highs[fh_r_pos]
-      cup_len = abs(fh_r_idx - fh_l_idx)
-      if cup_len < InpMinCupCandles:
-         continue
-      if cup_len > InpMaxCupCandles:
-         continue
-      tip_high = min(highs[fh_l_idx], highs[fh_r_idx])
-      mid_high = highs[fh_l_idx+1 : fh_r_idx]
-      if any(h > tip_high for h in mid_high):
-         break
-      #
-      try:
-         cup_dicts[fh_r_idx].append(fh_l_idx)
-      except:
-         cup_dicts[fh_r_idx] = [fh_l_idx]
-      break
-
-print(len(cup_dicts))
-print(cup_dicts)
-####################################
 
 import plotly.graph_objects as go
 
@@ -220,7 +180,7 @@ def plotPic(start_time, end_time, handle_end_time, i):
      yaxis_title="Price",
      xaxis_rangeslider_visible=False
      )
-  fig.write_image("ohlc_snapshot_plotly" + str(i) + ".png", width=1200, height=600)
+  fig.write_image("CupHandleSnap" + str(i) + ".png", width=1200, height=600)
 
 ####################################
 from sklearn.metrics import mean_squared_error, r2_score
@@ -334,7 +294,58 @@ def cup_score(cup):
    score -= (cup['handle_cup_join_gap'])/height
    #score += float(cup['handle_line_angle_deg']) / height
    return score
-   
+
+#################################################
+
+####################################
+fractal_highs = []
+for i in range(1, len(data)-1):
+   if highs[i-1] < highs[i] and highs[i] > highs[i+1]:
+      fractal_highs.append(i)
+   if highs[i-2] < highs[i-1] and highs[i-1] == highs[i] and highs[i] > highs[i+1]:
+      fractal_highs.append(i)
+
+print(len(fractal_highs))
+####################################
+handle_dicts = {}
+for fh in fractal_highs:
+   for i in range(fh+1, min(len(data)-1, fh+1+InpMaxHandleCandles)):
+      if highs[i] > highs[fh]:
+         if i > (fh+InpMinHandleCandles):
+            handle_dicts[fh] = i
+         break#continue #revise
+
+print(len(handle_dicts))
+print(handle_dicts)
+####################################
+cup_dicts = {}
+for fh_l_pos in range(len(fractal_highs)-1):
+   fh_l_idx = fractal_highs[fh_l_pos]
+   for fh_r_pos in range(fh_l_pos+1, len(fractal_highs)):
+      fh_r_idx = fractal_highs[fh_r_pos]
+      if abs(fh_l_idx - fh_r_idx) > InpMaxCupCandles:
+         break
+      cup_len = abs(fh_r_idx - fh_l_idx)
+      if cup_len < InpMinCupCandles:
+         continue
+      if cup_len > InpMaxCupCandles:
+         continue
+      tip_high = min(highs[fh_l_idx], highs[fh_r_idx])
+      mid_high = highs[fh_l_idx+1 : fh_r_idx]
+      if any(h > tip_high for h in mid_high):
+         continue # revise
+      #
+      try:
+         cup_dicts[fh_r_idx].append(fh_l_idx)
+      except:
+         cup_dicts[fh_r_idx] = [fh_l_idx]
+      continue
+
+print(len(cup_dicts))
+print(cup_dicts)
+
+####################################
+
 high = data['high']
 low = data['low']
 close = data['close']
@@ -352,8 +363,8 @@ data['ATR_14'] = atr14
 patterns = []
 
 for fh_r_idx, fh_l_idxs in cup_dicts.items():
-   #if count > 5:
-   #   break
+   if count > 100:
+      break
    if fh_r_idx not in handle_dicts:
       continue
    break_idx = handle_dicts[fh_r_idx]
@@ -361,6 +372,8 @@ for fh_r_idx, fh_l_idxs in cup_dicts.items():
       # Get cup highs and lows
       cup_highs = highs[fh_l_idx:fh_r_idx+1]
       cup_lows = lows[fh_l_idx:fh_r_idx+1]
+      cup_closes = closes[fh_l_idx:fh_r_idx+1]
+      cup_prices = closes[fh_l_idx:fh_r_idx+1]
       #
       cup_top_min = min(cup_highs[0], cup_highs[-1])
       cup_top_max = max(cup_highs[0], cup_highs[-1])
@@ -377,10 +390,9 @@ for fh_r_idx, fh_l_idxs in cup_dicts.items():
       #
       if CUP60 > HANDLE_BOTTOM:
          continue
-      """
-      if _handle_bottom < (cup_top_min-(cup_top_min*0.4)):
+      CUP85 = (cup_bottom+(cup_top_min-cup_bottom)*0.85)
+      if CUP85 < HANDLE_BOTTOM:
          continue
-      """
       ####################
       # Check price action after breakout
       broke_well = False
@@ -401,7 +413,7 @@ for fh_r_idx, fh_l_idxs in cup_dicts.items():
       for i in range(break_idx, min(break_idx+20, len(lows))):
          if lows[i] <= handle_bottom:
             # Price returned to handle bottom before reaching 50%
-            break
+            continue #revise
          if highs[i] >= should_broke_price:
             # Price reached 50% level - valid pattern
             broke_well = True
@@ -409,84 +421,157 @@ for fh_r_idx, fh_l_idxs in cup_dicts.items():
       if broke_well == False:
          break
       ###################
-      # Find left, bottom, right
-      cup_prices = prices[fh_l_idx:fh_r_idx+1]
-      left = prices[fh_l_idx]
-      right = prices[fh_r_idx]
-      bottom_idx = np.argmin(cup_prices)
-      bottom = cup_prices[bottom_idx]
-      # Check symmetry: left ≈ right (within 3%)
-      if abs(left - right) / max(left, right) > 0.04:
-         continue
       ####################
+      #"""
+      candle_heights = np.array(cup_highs) - np.array(cup_lows)
+      median_h = np.median(candle_heights)
+      MAX_RATIO = 2.5  # e.g. no candle > 2.5x the median size
+      if np.any(candle_heights > MAX_RATIO * median_h):
+         continue
       # 2. Pattern matching using normalized MSE vs U-shape
       cup_len = len(cup_highs)
       x = np.linspace(-1, 1, cup_len)
       ideal_u = x**2
+      # --- MAX DEVIATION CHECK ---
+      MAX_DEV = 0.35  # threshold (e.g. 10% deviation allowed)
+      normalized = (cup_highs - np.min(cup_highs)) / (np.max(cup_highs) - np.min(cup_highs))
+      deviations = np.abs(normalized - ideal_u)
+      max_dev = np.max(deviations)
+      if max_dev > MAX_DEV:
+          continue
+      MAX_DEV = 0.35  # threshold (e.g. 10% deviation allowed)
+      normalized = (cup_lows - np.min(cup_lows)) / (np.max(cup_lows) - np.min(cup_lows))
+      deviations = np.abs(normalized - ideal_u)
+      max_dev = np.max(deviations)
+      if max_dev > MAX_DEV:
+          continue
       #
-      """
+      cup_height = np.max(cup_highs) - np.min(cup_highs)
+      max_dev_height = np.max(deviations) / cup_height
+      if max_dev_height > 0.30:   # >10% of cup height
+          continue
+      cup_height = np.max(cup_lows) - np.min(cup_lows)
+      max_dev_height = np.max(deviations) / cup_height
+      if max_dev_height > 0.30:   # >10% of cup height
+          continue
+      #
+      MSE_MAX = 0.04
+      #""
       normalized = (cup_highs - np.min(cup_highs)) / (np.max(cup_highs) - np.min(cup_highs))
       mse = mean_squared_error(normalized, ideal_u)
-      if mse > 0.04:
+      if mse > MSE_MAX:
          continue
       #
       normalized = (cup_lows - np.min(cup_lows)) / (np.max(cup_lows) - np.min(cup_lows))
       mse = mean_squared_error(normalized, ideal_u)
-      if mse > 0.04:
+      if mse > MSE_MAX:
          continue
-      """
+      #""
       #
       normalized = (cup_prices - np.min(cup_prices)) / (np.max(cup_prices) - np.min(cup_prices))
       #normalized = (cup_highs - np.min(cup_highs)) / (np.max(cup_highs) - np.min(cup_highs))
       mse = mean_squared_error(normalized, ideal_u)
-      if mse > 0.06:
+      if mse > MSE_MAX:
          continue
-      ###################
-      # Left/right symmetry
+      #"""
+      ############################
+      # --- LEFT / RIGHT HALF MONOTONIC CHECK ---
       """
-      left = prices[fh_l_idx]
-      right = prices[fh_r_idx - 1]
-      bottom_idx = np.argmin(cup_prices)
-      bottom = cup_prices[bottom_idx]
-      if abs(left - right) / max(left, right) > 0.05:
-         continue
-      if max(left, right) - bottom <= 0:
-         continue
-      #
-      """
-      left = lows[fh_l_idx]
-      right = lows[fh_r_idx - 1]
-      bottom_idx = np.argmin(cup_lows)
-      bottom = cup_lows[bottom_idx]
-      if abs(left - right) / max(left, right) > 0.07:
-         continue
-      if max(left, right) - bottom <= 0:
-         continue
-      ####################
+      mid = cup_len // 2
       
+      # Left half: no 3 consecutive highs increasing
+      bad_left = any(
+          cup_highs[i] < cup_highs[i+1] < cup_highs[i+2]
+          for i in range(0, mid-2)
+      )
+      
+      # Right half: no 3 consecutive lows decreasing
+      bad_right = any(
+          cup_lows[i] > cup_lows[i+1] > cup_lows[i+2]
+          for i in range(mid, cup_len-2)
+      )
+      
+      if bad_left or bad_right:
+          continue
       """
-      _radius = get_radius(cup_highs)
-      print(fh_r_idx , fh_l_idx, _radius)
-      if _radius < InpRadius:
+      ################### RADIUS
+      """
+      _radius = get_radius(cup_lows)
+      #print(fh_r_idx , fh_l_idx, _radius)
+      if _radius < InpRadius*0.65:
          continue
-      """
-      """
+      #""
       _radius = get_radius(cup_highs)
-      print(fh_r_idx , fh_l_idx, _radius)
-      if _radius < InpRadius:
+      #print(fh_r_idx , fh_l_idx, _radius)
+      if _radius < InpRadius*0.65:
+         continue
+      #""
+      _radius = get_radius(cup_closes)
+      #print(fh_r_idx , fh_l_idx, _radius)
+      if _radius < InpRadius*0.65:
          continue
       """
       _high_low_high = get_high_low_high(cup_highs, cup_lows)
       _radius = get_radius(_high_low_high)
-      print(fh_r_idx , fh_l_idx, _radius)
-      if _radius < InpRadius:
+      #print(fh_r_idx , fh_l_idx, _radius)
+      if _radius < 0.65:
          continue
+      #################### Left/right symmetry-2
+      cup_curve_prices = getCupCurve(times[fh_l_idx], times[fh_r_idx])
+      # Left/right symmetry-2
+      mid_idx = fh_l_idx // 2
+      prices_left = prices[fh_l_idx: mid_idx]
+      prices_right = prices[mid_idx: fh_r_idx+1]
+      sum_left = sum(prices_left)
+      sum_right = sum(prices_right)
+      factor = 3.0 # 200%
+      #if (sum_left - sum_right) > (cup_height*factor):
+      #   continue
+      #gap_left_curve_low = [abs(cup_curve_prices[i+fh_l_idx]-lows[i]) for i in range(fh_l_idx,mid_idx)]
+      #gap_left_curve_high = [abs(cup_curve_prices[i+fh_l_idx]-highs[i]) for i in range(fh_l_idx,mid_idx)]
+      #prices_left_high_dif = sum([highs[i]-lows[i] for i in range(fh_l_idx,mid_idx)])
+      
       ####################
       #print("hBott: " + str(handle_bottom) + ", h40%: " + str(cup_top_min-(cup_height*0.4)))
       #print((handle_bottom < (cup_top_min-(cup_height*0.4))))
-      print("Found.... ", times[fh_l_idx], times[fh_r_idx], times[break_idx], 0)
       ### CUP
-      cup_curve_prices = getCupCurve(times[fh_l_idx], times[fh_r_idx])
+      #
+      violates = False
+      factor = 1.4
+      sum_height = sum([cup_highs[i]-cup_lows[i] for i in range(len(cup_highs))])
+      sum_avg = sum_height / float(len(cup_highs))
+      _gap = sum_avg
+      """
+      _gap = cup_height
+      factor = 0.1
+      for i in range(len(cup_curve_prices)):
+         #_gap = (cup_highs[i]-cup_lows[i])
+         #_gap = #atr14.iloc[i+fh_l_idx]
+         upper = cup_curve_prices[i] + _gap * factor
+         lower = cup_curve_prices[i] - _gap * factor          
+         if cup_highs[i] > upper or cup_lows[i] < lower:
+            #violates = True
+            break
+      
+      #
+      _gap = cup_height
+      factor = 0.3
+      for i in range(len(cup_curve_prices)):
+         #_gap = (cup_highs[i]-cup_lows[i])
+         #_gap = #atr14.iloc[i+fh_l_idx]
+         upper = cup_curve_prices[i] + _gap * factor
+         lower = cup_curve_prices[i] - _gap * factor
+         continue
+         if cup_highs[i] > upper or cup_lows[i] < lower:      
+            #if cup_prices[i] > upper or cup_prices[i] < lower:
+            violates = True
+            break
+      #
+      violates = False
+      if violates:
+          continue  # reject cup due to significant internal swing
+      """
+      #######
       cup_tips_gap_min = 0
       if highs[fh_l_idx] < lows[fh_r_idx]:
          cup_tips_gap_min = max((lows[fh_r_idx] - highs[fh_l_idx]), cup_tip_gap_min)
@@ -498,6 +583,7 @@ for fh_r_idx, fh_l_idxs in cup_dicts.items():
       handle_line_angle_deg = (max(handle_line_prices)-min(handle_line_prices)) / float(len(handle_line_prices))
       print(handle_line_prices)
       #
+      print("Found.... ", times[fh_l_idx], times[fh_r_idx], times[break_idx], 0)
       pattern = {'cup_height':cup_height,
                  'handle_height':handle_height,
                  'cup_candles':cup_len,
@@ -526,7 +612,7 @@ for fh_r_idx, fh_l_idxs in cup_dicts.items():
       count = count + 1
       if count > 100:
          print("READCHED MAX")
-         exit()
+         #exit()
          continue
       #break
    #break
@@ -545,20 +631,21 @@ def get_best_30_patterns(patterns):
     sorted_patterns = sorted(patterns, key=lambda x: x['score'], reverse=True)
     
     # Keep only the top 30
-    return sorted_patterns[:30]
+    return sorted_patterns[:10]
 
 best_patterns = get_best_30_patterns(patterns)
 
 print(best_patterns)
 print(len(best_patterns))
 print(len(patterns))
-#exit()
 
 _count = 0
 for cup_handle in best_patterns:
    print("Drawing.... ", times[fh_l_idx], times[fh_r_idx], times[break_idx], 0)
    plotPic(times[cup_handle['cup_left_idx']], times[cup_handle['cup_right_idx']], times[cup_handle['break_idx']], _count)
    _count = _count + 1
+   #if _count > 10:
+   #   break
    print("Drawn : " + str(_count) + " ->> " + str(cup_handle['score']))
    print(cup_handle)
    print("-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-x-")
